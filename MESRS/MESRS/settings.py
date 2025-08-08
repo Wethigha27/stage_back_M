@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     
     # Local apps
     'myapp',
+    # ... vos apps existantes
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -150,14 +152,14 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # REST Framework configuration
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        # 'rest_framework.permissions.IsAuthenticated',  # ← Commentez cette ligne
-        'rest_framework.permissions.AllowAny',  # ← Ajoutez cette ligne pour les tests
+        'myapp.permissions.IsAuthenticatedWithHierarchy',  # Notre permission personnalisée
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
@@ -166,20 +168,15 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ],
-    'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
-    'DATE_FORMAT': '%Y-%m-%d',
 }
 
-# CORS configuration pour Angular
+# CORS configuration pour React (au lieu d'Angular)
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:4200",  # Angular dev server
+    "http://localhost:3000",  # React dev server
+    "http://127.0.0.1:3000",
+    "http://localhost:4200",  # Gardez Angular si nécessaire
     "http://127.0.0.1:4200",
 ]
-
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = [
@@ -240,3 +237,13 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+}
+# User personnalisé
+AUTH_USER_MODEL = 'myapp.User'
