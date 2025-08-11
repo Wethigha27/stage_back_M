@@ -354,3 +354,14 @@ Unauthorized: /api/auth/login/
 "POST /api/auth/login/ HTTP/1.1" 401 118
 Unauthorized: /api/permissions/mes_permissions/
 "GET /api/permissions/mes_permissions/ HTTP/1.1" 401 58
+Watching for file changes with StatReloader
+Not Found: /main.51eb68a977cb116da23c.hot-update.json
+"GET /main.51eb68a977cb116da23c.hot-update.json HTTP/1.1" 404 3804
+"POST /api/auth/login/ HTTP/1.1" 200 823
+Not Found: /main.0e8455adf992f48088ae.hot-update.json
+"GET /main.0e8455adf992f48088ae.hot-update.json HTTP/1.1" 404 3804
+Not Found: /main.0e8455adf992f48088ae.hot-update.json
+"GET /main.0e8455adf992f48088ae.hot-update.json HTTP/1.1" 404 3804
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 3714
+"POST /api/auth/login/ HTTP/1.1" 200 823
