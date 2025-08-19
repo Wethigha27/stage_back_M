@@ -8,7 +8,25 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from datetime import datetime, timedelta
+from django.conf import settings
 
+# Ajoutez cette ligne avec les autres imports
+from calendar import monthrange
+
+from django.db.models import Count, Q, Sum, Avg
+from django.utils import timezone
+from datetime import datetime, timedelta
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
+from django.http import HttpResponse
+import json
+from calendar import monthrange
+import csv
+from io import StringIO
+
+from django.utils import timezone
+from datetime import timedelta
 from .models import (
     User, Service, Structure, Personne, Enseignant, PersonnelPAT, Contractuel,
     Recrutement, Candidat, Absence, Paie, Detachement, Document,
@@ -268,7 +286,7 @@ class PersonneViewSet(viewsets.ModelViewSet):
         })
 
 class EnseignantViewSet(viewsets.ModelViewSet):
-    """ViewSet pour les enseignants avec hiérarchie"""
+    """ViewSet pour les enseignants avec hiérarchie CORRIGÉ"""
     serializer_class = EnseignantSerializer
     permission_classes = [IsAdminRHOrChefService]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -279,43 +297,572 @@ class EnseignantViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         
+        print(f"🔍 EnseignantViewSet.get_queryset() appelé pour: {user.username} (rôle: {getattr(user, 'role', 'AUCUN')})")
+        
         if not user.is_authenticated:
+            print("❌ Utilisateur non authentifié")
+            return Enseignant.objects.none()
+            
+        # ✅ CORRECTION: Vérifier que l'attribut 'role' existe
+        if not hasattr(user, 'role'):
+            print("❌ Utilisateur sans rôle défini")
             return Enseignant.objects.none()
             
         if user.role == 'admin_rh':
-            return Enseignant.objects.select_related('personne').all()
+            print("✅ Admin RH - Accès à tous les enseignants")
+            return Enseignant.objects.select_related('personne', 'personne__service').all()
+            
         elif user.role == 'chef_enseignant':
-            # Chef enseignant voit tous les enseignants de son service
+            print("🎓 Chef enseignant - Recherche de son service...")
             try:
+                # ✅ CORRECTION: Import ici pour éviter les imports circulaires
+                from .models import Service
                 service = Service.objects.get(chef_service=user, type_service='enseignant')
-                return Enseignant.objects.filter(personne__service=service).select_related('personne')
+                queryset = Enseignant.objects.filter(personne__service=service).select_related('personne', 'personne__service')
+                print(f"✅ Service trouvé: {service.nom} - {queryset.count()} enseignants")
+                return queryset
             except Service.DoesNotExist:
+                print(f"❌ Aucun service 'enseignant' trouvé pour le chef {user.username}")
+                return Enseignant.objects.none()
+            except Exception as e:
+                print(f"❌ Erreur inattendue: {e}")
                 return Enseignant.objects.none()
         else:
-            # Employé ne voit que lui-même
-            return Enseignant.objects.filter(personne__user=user).select_related('personne')
+            # Employé ne voit que lui-même s'il est enseignant
+            print("👤 Employé - Accès à son propre profil")
+            try:
+                return Enseignant.objects.filter(personne__user=user).select_related('personne')
+            except Exception as e:
+                print(f"❌ Erreur pour employé: {e}")
+                return Enseignant.objects.none()
+    
+    def list(self, request, *args, **kwargs):
+        """Override pour debugging"""
+        print(f"📋 Liste des enseignants demandée par {request.user.username}")
+        
+        try:
+            queryset = self.get_queryset()
+            print(f"📊 Queryset contient {queryset.count()} enseignants")
+            
+            # Appliquer les filtres
+            queryset = self.filter_queryset(queryset)
+            
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(queryset, many=True)
+            print(f"✅ Retour de {len(serializer.data)} enseignants")
+            return Response(serializer.data)
+            
+        except Exception as e:
+            print(f"❌ Erreur dans list(): {e}")
+            return Response({
+                'error': f'Erreur lors de la récupération des enseignants: {str(e)}',
+                'debug_info': {
+                    'user': request.user.username,
+                    'role': getattr(request.user, 'role', 'AUCUN'),
+                    'authenticated': request.user.is_authenticated
+                }
+            }, status=500)
+    
+    def create(self, request, *args, **kwargs):
+        """Création d'enseignant avec vérifications"""
+        user = request.user
+        print(f"➕ Création d'enseignant par {user.username}")
+        
+        if user.role not in ['admin_rh', 'chef_enseignant']:
+            return Response({'error': 'Permission refusée pour créer un enseignant'}, status=403)
+        
+        # Si c'est un chef, vérifier qu'il crée dans son service
+        if user.role == 'chef_enseignant':
+            try:
+                from .models import Service
+                service = Service.objects.get(chef_service=user, type_service='enseignant')
+                # Assurer que la personne est assignée au bon service
+                if 'personne' in request.data and 'service' in request.data['personne']:
+                    if request.data['personne']['service'] != service.id:
+                        return Response({'error': 'Vous ne pouvez créer que dans votre service'}, status=403)
+            except Service.DoesNotExist:
+                return Response({'error': 'Service enseignant non trouvé'}, status=404)
+        
+        return super().create(request, *args, **kwargs)
+    
+    @action(detail=False, methods=['get'])
+    def debug_info(self, request):
+        """Endpoint de debug amélioré"""
+        user = request.user
+        
+        debug_data = {
+            'timestamp': timezone.now().isoformat(),
+            'user_info': {
+                'id': user.id,
+                'username': user.username,
+                'role': getattr(user, 'role', 'AUCUN RÔLE'),
+                'is_authenticated': user.is_authenticated,
+                'is_active': user.is_active
+            },
+            'queryset_info': {},
+            'service_info': None,
+            'permissions': []
+        }
+        
+        try:
+            # Test du queryset
+            queryset = self.get_queryset()
+            debug_data['queryset_info'] = {
+                'count': queryset.count(),
+                'exists': queryset.exists(),
+                'sql_query': str(queryset.query) if queryset.exists() else 'EMPTY QUERYSET'
+            }
+            
+            # Informations sur le service si chef
+            if user.role == 'chef_enseignant':
+                try:
+                    from .models import Service
+                    service = Service.objects.get(chef_service=user, type_service='enseignant')
+                    debug_data['service_info'] = {
+                        'id': service.id,
+                        'nom': service.nom,
+                        'type': service.type_service,
+                        'total_employes': service.employes.count(),
+                        'enseignants_count': service.employes.filter(type_employe='enseignant').count()
+                    }
+                except Service.DoesNotExist:
+                    debug_data['service_info'] = 'SERVICE_NOT_FOUND'
+            
+            # Permissions
+            debug_data['permissions'] = [
+                f"Can view: {self.permission_classes[0]().has_permission(request, self)}",
+                f"User role: {user.role}",
+                f"Is admin_rh: {user.role == 'admin_rh'}",
+                f"Is chef_enseignant: {user.role == 'chef_enseignant'}"
+            ]
+            
+        except Exception as e:
+            debug_data['error'] = str(e)
+            debug_data['traceback'] = str(e.__class__.__name__)
+        
+        return Response(debug_data)
+    
     
     @action(detail=False, methods=['get'])
     def par_grade(self, request):
-        """Statistiques des enseignants par grade selon permissions"""
-        queryset = self.get_queryset()
-        stats = queryset.values('grade').annotate(count=Count('id'))
-        return Response(list(stats))
-    
-    @action(detail=False, methods=['get'])
-    def fins_service_proche(self, request):
-        """Enseignants dont la fin de service obligatoire approche"""
-        queryset = self.get_queryset()
-        date_limite = timezone.now().date() + timedelta(days=365)  # Dans 1 an
-        
-        enseignants = queryset.filter(
-            date_fin_service_obligatoire__lte=date_limite,
-            date_fin_service_obligatoire__gte=timezone.now().date()
-        )
-        
-        serializer = self.get_serializer(enseignants, many=True)
-        return Response(serializer.data)
+            """Statistiques par grade CORRIGÉ"""
+            try:
+                queryset = self.get_queryset()
+                
+                if not queryset.exists():
+                    return Response({
+                        'message': 'Aucun enseignant trouvé',
+                        'data': [],
+                        'total': 0
+                    })
+                
+                # ✅ CORRECTION: Utiliser 'personne' au lieu de 'id'
+                stats_data = queryset.values('grade').annotate(count=Count('personne'))
+                
+                # Formater la réponse avec les labels
+                data = []
+                for stat in stats_data:
+                    grade = stat['grade']
+                    count = stat['count']
+                    
+                    # Obtenir le label depuis les choices du modèle
+                    grade_label = dict(Enseignant.GRADE_CHOICES).get(grade, grade)
+                    
+                    data.append({
+                        'grade': grade,
+                        'count': count,
+                        'label': grade_label
+                    })
+                
+                return Response({
+                    'data': data,
+                    'total': queryset.count(),
+                    'success': True
+                })
+                
+            except Exception as e:
+                print(f"❌ Erreur par_grade: {str(e)}")
+                return Response({
+                    'error': str(e),
+                    'success': False
+                }, status=500)
 
+    @action(detail=False, methods=['get'])
+    def rapport_mensuel(self, request):
+        """Rapport mensuel des enseignants pour chef de service"""
+        user = request.user
+        
+        if user.role != 'chef_enseignant':
+            return Response({'error': 'Permission refusée'}, status=403)
+        
+        # Paramètres
+        mois = request.query_params.get('mois', timezone.now().strftime('%Y-%m'))
+        
+        try:
+            # Récupérer le service du chef
+            service = Service.objects.get(chef_service=user, type_service='enseignant')
+            queryset = self.get_queryset()
+            
+            # Protection: Filtrer seulement les enseignants avec personne
+            queryset = queryset.filter(personne__isnull=False)
+            
+            # Statistiques générales
+            total_enseignants = queryset.count()
+            
+            # ✅ CORRECTION: Utiliser 'personne' au lieu de 'id' pour compter
+            par_grade = queryset.values('grade').annotate(count=Count('personne'))
+            
+            # Dates du mois
+            debut_mois = datetime.strptime(f"{mois}-01", '%Y-%m-%d').date()
+            _, last_day = monthrange(debut_mois.year, debut_mois.month)
+            fin_mois = debut_mois.replace(day=last_day)
+            
+            # Absences du mois
+            absences_mois = Absence.objects.filter(
+                personne__service=service,
+                date_debut__lte=fin_mois,
+                date_fin__gte=debut_mois
+            ).values('type_absence').annotate(count=Count('id'))
+            
+            # Enseignants avec absences
+            enseignants_avec_absences = queryset.filter(
+                personne__absences__date_debut__lte=fin_mois,
+                personne__absences__date_fin__gte=debut_mois
+            ).distinct().count()
+            
+            # Taux de présence
+            taux_presence = ((total_enseignants - enseignants_avec_absences) / total_enseignants * 100) if total_enseignants > 0 else 100
+            
+            # Absences par statut
+            absences_par_statut = Absence.objects.filter(
+                personne__service=service,
+                date_debut__lte=fin_mois,
+                date_fin__gte=debut_mois
+            ).values('statut').annotate(count=Count('id'))
+            
+            # Top 5 enseignants avec le plus d'absences
+            top_absences = []
+            for enseignant in queryset:
+                if enseignant.personne:
+                    nb_absences = Absence.objects.filter(
+                        personne=enseignant.personne,
+                        date_debut__lte=fin_mois,
+                        date_fin__gte=debut_mois
+                    ).count()
+                    if nb_absences > 0:
+                        top_absences.append({
+                            'nom': f"{enseignant.personne.prenom} {enseignant.personne.nom}",
+                            'grade': enseignant.grade,
+                            'nombre_absences': nb_absences
+                        })
+            
+            top_absences.sort(key=lambda x: x['nombre_absences'], reverse=True)
+            top_absences = top_absences[:5]
+            
+            rapport = {
+                'periode': mois,
+                'service': service.nom,
+                'statistiques': {
+                    'total_enseignants': total_enseignants,
+                    'enseignants_presents': total_enseignants - enseignants_avec_absences,
+                    'enseignants_absents': enseignants_avec_absences,
+                    'taux_presence': round(taux_presence, 2)
+                },
+                'repartition_grade': list(par_grade),
+                'absences_par_type': list(absences_mois),
+                'absences_par_statut': list(absences_par_statut),
+                'top_absences': top_absences,
+                'genere_le': timezone.now().isoformat()
+            }
+            
+            return Response(rapport)
+            
+        except Service.DoesNotExist:
+            return Response({'error': 'Service non trouvé'}, status=404)
+        except Exception as e:
+            print(f"❌ Erreur rapport_mensuel: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': f'Erreur interne: {str(e)}'}, status=500)
+
+    @action(detail=False, methods=['get'])
+    def rapport_annuel(self, request):
+        """Rapport annuel des enseignants"""
+        user = request.user
+        
+        if user.role != 'chef_enseignant':
+            return Response({'error': 'Permission refusée'}, status=403)
+        
+        annee = int(request.query_params.get('annee', timezone.now().year))
+        
+        try:
+            service = Service.objects.get(chef_service=user, type_service='enseignant')
+            queryset = self.get_queryset()
+            
+            # Données par mois
+            donnees_mensuelles = []
+            mois_noms = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+            
+            for mois in range(1, 13):
+                debut = datetime(annee, mois, 1).date()
+                _, last_day = monthrange(annee, mois)
+                fin = datetime(annee, mois, last_day).date()
+                
+                absences = Absence.objects.filter(
+                    personne__service=service,
+                    date_debut__lte=fin,
+                    date_fin__gte=debut
+                ).count()
+                
+                # Absences par type pour ce mois
+                absences_par_type = Absence.objects.filter(
+                    personne__service=service,
+                    date_debut__lte=fin,
+                    date_fin__gte=debut
+                ).values('type_absence').annotate(count=Count('id'))
+                
+                donnees_mensuelles.append({
+                    'mois': mois,
+                    'nom_mois': mois_noms[mois-1],
+                    'nombre_absences': absences,
+                    'absences_par_type': list(absences_par_type)
+                })
+            
+            # Évolution des effectifs
+            evolution_effectifs = []
+            for mois in range(1, 13):
+                effectif = queryset.count()  # Effectif actuel pour tous les mois
+                evolution_effectifs.append({
+                    'mois': mois,
+                    'nom_mois': mois_noms[mois-1],
+                    'effectif': effectif
+                })
+            
+            # Statistiques annuelles
+            total_absences_annee = sum(d['nombre_absences'] for d in donnees_mensuelles)
+            mois_plus_absences = max(donnees_mensuelles, key=lambda x: x['nombre_absences'])
+            mois_moins_absences = min(donnees_mensuelles, key=lambda x: x['nombre_absences'])
+            
+            # Tendances
+            premier_trimestre = sum(d['nombre_absences'] for d in donnees_mensuelles[:3])
+            deuxieme_trimestre = sum(d['nombre_absences'] for d in donnees_mensuelles[3:6])
+            troisieme_trimestre = sum(d['nombre_absences'] for d in donnees_mensuelles[6:9])
+            quatrieme_trimestre = sum(d['nombre_absences'] for d in donnees_mensuelles[9:12])
+            
+            rapport = {
+                'annee': annee,
+                'service': service.nom,
+                'donnees_mensuelles': donnees_mensuelles,
+                'evolution_effectifs': evolution_effectifs,
+                'statistiques_annuelles': {
+                    'total_absences': total_absences_annee,
+                    'moyenne_mensuelle': round(total_absences_annee / 12, 2),
+                    'mois_plus_absences': mois_plus_absences,
+                    'mois_moins_absences': mois_moins_absences
+                },
+                'donnees_trimestrielles': [
+                    {'trimestre': 'T1', 'absences': premier_trimestre},
+                    {'trimestre': 'T2', 'absences': deuxieme_trimestre},
+                    {'trimestre': 'T3', 'absences': troisieme_trimestre},
+                    {'trimestre': 'T4', 'absences': quatrieme_trimestre}
+                ],
+                'genere_le': timezone.now().isoformat()
+            }
+            
+            return Response(rapport)
+            
+        except Service.DoesNotExist:
+            return Response({'error': 'Service non trouvé'}, status=404)
+
+    @action(detail=False, methods=['get'])
+    def planning_absences(self, request):
+        """Planning des absences pour le mois"""
+        user = request.user
+        
+        if user.role != 'chef_enseignant':
+            return Response({'error': 'Permission refusée'}, status=403)
+        
+        # Paramètres
+        mois = request.query_params.get('mois', timezone.now().strftime('%Y-%m'))
+        
+        try:
+            service = Service.objects.get(chef_service=user, type_service='enseignant')
+            
+            # Dates du mois
+            debut_mois = datetime.strptime(f"{mois}-01", '%Y-%m-%d').date()
+            _, last_day = monthrange(debut_mois.year, debut_mois.month)
+            fin_mois = debut_mois.replace(day=last_day)
+            
+            # Récupérer toutes les absences du mois
+            absences = Absence.objects.filter(
+                personne__service=service,
+                date_debut__lte=fin_mois,
+                date_fin__gte=debut_mois,
+                statut__in=['APPROUVÉ', 'EN_ATTENTE']
+            ).select_related('personne').order_by('date_debut')
+            
+            # Organiser par jour
+            planning = {}
+            current_date = debut_mois
+            
+            while current_date <= fin_mois:
+                day_key = current_date.strftime('%Y-%m-%d')
+                planning[day_key] = {
+                    'date': day_key,
+                    'jour_semaine': current_date.strftime('%A'),
+                    'numero_jour': current_date.day,
+                    'est_weekend': current_date.weekday() >= 5,
+                    'absences': [],
+                    'nombre_absents': 0
+                }
+                current_date += timedelta(days=1)
+            
+            # Remplir le planning avec les absences
+            for absence in absences:
+                current_date = max(absence.date_debut, debut_mois)
+                end_date = min(absence.date_fin, fin_mois)
+                
+                while current_date <= end_date:
+                    day_key = current_date.strftime('%Y-%m-%d')
+                    if day_key in planning:
+                        enseignant_data = {
+                            'id': absence.id,
+                            'enseignant_id': absence.personne.id,
+                            'nom': absence.personne.nom,
+                            'prenom': absence.personne.prenom,
+                            'nom_complet': f"{absence.personne.prenom} {absence.personne.nom}",
+                            'grade': absence.personne.enseignant.grade if hasattr(absence.personne, 'enseignant') else 'N/A',
+                            'type_absence': absence.type_absence,
+                            'statut': absence.statut,
+                            'debut': absence.date_debut.isoformat(),
+                            'fin': absence.date_fin.isoformat(),
+                            'duree_totale': (absence.date_fin - absence.date_debut).days + 1
+                        }
+                        planning[day_key]['absences'].append(enseignant_data)
+                    current_date += timedelta(days=1)
+            
+            # Calculer le nombre d'absents par jour
+            for day_data in planning.values():
+                day_data['nombre_absents'] = len(day_data['absences'])
+            
+            # Statistiques du planning
+            total_jours_ouvrables = sum(1 for day in planning.values() if not day['est_weekend'])
+            total_absences_planifiees = absences.count()
+            
+            # Jour avec le plus d'absences
+            jour_max_absences = max(planning.values(), key=lambda x: x['nombre_absents'])
+            
+            return Response({
+                'mois': mois,
+                'service': service.nom,
+                'planning': planning,
+                'statistiques': {
+                    'total_absences': total_absences_planifiees,
+                    'total_jours_ouvrables': total_jours_ouvrables,
+                    'jour_max_absences': {
+                        'date': jour_max_absences['date'],
+                        'nombre': jour_max_absences['nombre_absents']
+                    }
+                }
+            })
+            
+        except Service.DoesNotExist:
+            return Response({'error': 'Service non trouvé'}, status=404)
+
+    @action(detail=False, methods=['get'])
+    def export_rapport(self, request):
+        """Exporter le rapport en CSV ou JSON"""
+        user = request.user
+        
+        if user.role != 'chef_enseignant':
+            return Response({'error': 'Permission refusée'}, status=403)
+        
+        format_export = request.query_params.get('format', 'json')
+        mois = request.query_params.get('mois', timezone.now().strftime('%Y-%m'))
+        type_rapport = request.query_params.get('type', 'mensuel')
+        
+        try:
+            service = Service.objects.get(chef_service=user, type_service='enseignant')
+            queryset = self.get_queryset()
+            
+            # Dates du mois
+            debut_mois = datetime.strptime(f"{mois}-01", '%Y-%m-%d').date()
+            _, last_day = monthrange(debut_mois.year, debut_mois.month)
+            fin_mois = debut_mois.replace(day=last_day)
+            
+            if type_rapport == 'detaille':
+                # Rapport détaillé par enseignant
+                donnees = []
+                for enseignant in queryset:
+                    absences = Absence.objects.filter(
+                        personne=enseignant.personne,
+                        date_debut__lte=fin_mois,
+                        date_fin__gte=debut_mois
+                    )
+                    
+                    total_jours_absence = sum((abs.date_fin - max(abs.date_debut, debut_mois)).days + 1 
+                                            for abs in absences)
+                    
+                    donnees.append({
+                        'nom': enseignant.personne.nom,
+                        'prenom': enseignant.personne.prenom,
+                        'grade': enseignant.grade,
+                        'corps': enseignant.corps,
+                        'indice': enseignant.indice,
+                        'nombre_absences': absences.count(),
+                        'jours_absence': total_jours_absence,
+                        'types_absence': ', '.join(absences.values_list('type_absence', flat=True).distinct())
+                    })
+            else:
+                # Rapport synthétique
+                donnees = []
+                for enseignant in queryset:
+                    absences = Absence.objects.filter(
+                        personne=enseignant.personne,
+                        date_debut__lte=fin_mois,
+                        date_fin__gte=debut_mois
+                    )
+                    
+                    donnees.append({
+                        'nom': enseignant.personne.nom,
+                        'prenom': enseignant.personne.prenom,
+                        'grade': enseignant.grade,
+                        'nombre_absences': absences.count(),
+                        'jours_absence': sum((abs.date_fin - abs.date_debut).days + 1 for abs in absences)
+                    })
+            
+            if format_export == 'csv':
+                output = StringIO()
+                if donnees:
+                    fieldnames = donnees[0].keys()
+                    writer = csv.DictWriter(output, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(donnees)
+                
+                response = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
+                filename = f"rapport_enseignants_{type_rapport}_{mois}.csv"
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            
+            # Format JSON
+            return Response({
+                'donnees': donnees,
+                'periode': mois,
+                'service': service.nom,
+                'type_rapport': type_rapport,
+                'genere_le': timezone.now().isoformat()
+            })
+            
+        except Service.DoesNotExist:
+            return Response({'error': 'Service non trouvé'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+        
 class PersonnelPATViewSet(viewsets.ModelViewSet):
     """ViewSet pour le personnel PAT avec hiérarchie"""
     serializer_class = PersonnelPATSerializer
@@ -606,7 +1153,518 @@ class AbsenceViewSet(viewsets.ModelViewSet):
             'par_statut': list(par_statut),
             'total': queryset.count()
         })
+    @action(detail=False, methods=['get'])
+    def planning_validation(self, request):
+        """Planning des absences à valider pour les chefs"""
+        user = request.user
+        
+        if not user.role.startswith('chef_') and user.role != 'admin_rh':
+            return Response({'error': 'Permission refusée'}, status=403)
+        
+        try:
+            # Déterminer le scope
+            if user.role == 'admin_rh':
+                absences = Absence.objects.filter(statut='EN_ATTENTE')
+            else:
+                service = Service.objects.get(chef_service=user)
+                absences = Absence.objects.filter(
+                    personne__service=service,
+                    statut='EN_ATTENTE'
+                )
+            
+            # Organiser par priorité
+            aujourd_hui = timezone.now().date()
+            
+            # Absences urgentes (dans les 3 jours)
+            absences_urgentes = absences.filter(
+                date_debut__lte=aujourd_hui + timedelta(days=3)
+            ).select_related('personne')
+            
+            # Absences cette semaine (4-7 jours)
+            absences_semaine = absences.filter(
+                date_debut__gt=aujourd_hui + timedelta(days=3),
+                date_debut__lte=aujourd_hui + timedelta(days=7)
+            ).select_related('personne')
+            
+            # Absences futures (plus de 7 jours)
+            absences_futures = absences.filter(
+                date_debut__gt=aujourd_hui + timedelta(days=7)
+            ).select_related('personne')
+            
+            return Response({
+                'absences_urgentes': AbsenceSerializer(absences_urgentes, many=True).data,
+                'absences_semaine': AbsenceSerializer(absences_semaine, many=True).data,
+                'absences_futures': AbsenceSerializer(absences_futures, many=True).data,
+                'statistiques': {
+                    'total_en_attente': absences.count(),
+                    'urgentes': absences_urgentes.count(),
+                    'cette_semaine': absences_semaine.count(),
+                    'futures': absences_futures.count()
+                }
+            })
+            
+        except Service.DoesNotExist:
+            return Response({'error': 'Service non trouvé'}, status=404)
 
+    @action(detail=False, methods=['post'])
+    def validation_en_lot(self, request):
+        """Valider plusieurs absences en une fois"""
+        user = request.user
+        
+        if not user.role.startswith('chef_') and user.role != 'admin_rh':
+            return Response({'error': 'Permission refusée'}, status=403)
+        
+        absence_ids = request.data.get('absence_ids', [])
+        action_type = request.data.get('action', 'approuver')  # approuver ou refuser
+        commentaire = request.data.get('commentaire', '')
+        
+        if not absence_ids:
+            return Response({'error': 'Aucune absence sélectionnée'}, status=400)
+        
+        try:
+            # Récupérer les absences
+            absences = Absence.objects.filter(id__in=absence_ids, statut='EN_ATTENTE')
+            
+            # Vérifier les permissions pour chaque absence
+            if user.role != 'admin_rh':
+                service = Service.objects.get(chef_service=user)
+                absences = absences.filter(personne__service=service)
+            
+            resultats = {
+                'traitees': 0,
+                'erreurs': []
+            }
+            
+            for absence in absences:
+                try:
+                    if action_type == 'approuver':
+                        absence.statut = 'APPROUVÉ'
+                        absence.commentaire_approbateur = commentaire
+                    else:
+                        absence.statut = 'REFUSÉ'
+                        absence.motif_refus = commentaire
+                    
+                    absence.approuve_par = user
+                    absence.save()
+                    resultats['traitees'] += 1
+                    
+                except Exception as e:
+                    resultats['erreurs'].append({
+                        'absence_id': absence.id,
+                        'erreur': str(e)
+                    })
+            
+            return Response({
+                'message': f'{resultats["traitees"]} absences {action_type}ées avec succès',
+                'resultats': resultats
+            })
+            
+        except Service.DoesNotExist:
+            return Response({'error': 'Service non trouvé'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+
+
+class PlanningViewSet(viewsets.ViewSet):
+    """
+    ViewSet pour la gestion du planning
+    """
+    permission_classes = [IsAdminRHOrChefService]
+    
+    @action(detail=False, methods=['get'])
+    def vue_mensuelle(self, request):
+        """Vue mensuelle du planning selon le rôle"""
+        user = request.user
+        mois = request.query_params.get('mois', timezone.now().strftime('%Y-%m'))
+        
+        try:
+            # Déterminer le scope selon le rôle
+            if user.role == 'admin_rh':
+                personnes = Personne.objects.all()
+                scope_name = "Tous les services"
+            elif user.role.startswith('chef_'):
+                service = Service.objects.get(chef_service=user)
+                personnes = service.employes.all()
+                scope_name = service.nom
+            else:
+                return Response({'error': 'Permission refusée'}, status=403)
+            
+            # Dates du mois
+            debut_mois = datetime.strptime(f"{mois}-01", '%Y-%m-%d').date()
+            _, last_day = monthrange(debut_mois.year, debut_mois.month)
+            fin_mois = debut_mois.replace(day=last_day)
+            
+            # Récupérer les absences
+            absences = Absence.objects.filter(
+                personne__in=personnes,
+                date_debut__lte=fin_mois,
+                date_fin__gte=debut_mois,
+                statut='APPROUVÉ'
+            ).select_related('personne')
+            
+            # Créer le planning calendaire
+            planning_data = self._generer_planning_calendaire(debut_mois, fin_mois, absences)
+            
+            # Statistiques
+            jours_travailles = self._calculer_jours_travailles(debut_mois, fin_mois)
+            taux_presence_moyen = self._calculer_taux_presence(personnes.count(), absences, jours_travailles)
+            
+            return Response({
+                'mois': mois,
+                'scope': scope_name,
+                'planning': planning_data,
+                'statistiques': {
+                    'total_employes': personnes.count(),
+                    'total_absences': absences.count(),
+                    'jours_travailles': jours_travailles,
+                    'taux_presence_moyen': taux_presence_moyen
+                }
+            })
+            
+        except Service.DoesNotExist:
+            return Response({'error': 'Service non trouvé'}, status=404)
+    
+    @action(detail=False, methods=['get'])
+    def vue_hebdomadaire(self, request):
+        """Vue hebdomadaire du planning"""
+        user = request.user
+        semaine = request.query_params.get('semaine')  # Format: 2024-W15
+        
+        if not semaine:
+            # Semaine courante
+            today = timezone.now().date()
+            year, week, _ = today.isocalendar()
+            semaine = f"{year}-W{week:02d}"
+        
+        try:
+            # Parser la semaine
+            year, week_num = semaine.split('-W')
+            year = int(year)
+            week_num = int(week_num)
+            
+            # Calculer les dates de début et fin de semaine
+            debut_semaine = datetime.strptime(f"{year}-W{week_num:02d}-1", "%Y-W%W-%w").date()
+            fin_semaine = debut_semaine + timedelta(days=6)
+            
+            # Déterminer le scope
+            if user.role == 'admin_rh':
+                personnes = Personne.objects.all()
+                scope_name = "Tous les services"
+            elif user.role.startswith('chef_'):
+                service = Service.objects.get(chef_service=user)
+                personnes = service.employes.all()
+                scope_name = service.nom
+            else:
+                return Response({'error': 'Permission refusée'}, status=403)
+            
+            # Récupérer les absences de la semaine
+            absences = Absence.objects.filter(
+                personne__in=personnes,
+                date_debut__lte=fin_semaine,
+                date_fin__gte=debut_semaine,
+                statut='APPROUVÉ'
+            ).select_related('personne')
+            
+            # Organiser par jour de la semaine
+            planning_semaine = {}
+            jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+            
+            for i in range(7):
+                jour_date = debut_semaine + timedelta(days=i)
+                day_key = jour_date.strftime('%Y-%m-%d')
+                
+                planning_semaine[day_key] = {
+                    'date': day_key,
+                    'jour_semaine': jours[i],
+                    'est_weekend': i >= 5,
+                    'absents': []
+                }
+            
+            # Remplir avec les absences
+            for absence in absences:
+                start_date = max(absence.date_debut, debut_semaine)
+                end_date = min(absence.date_fin, fin_semaine)
+                
+                current = start_date
+                while current <= end_date:
+                    day_key = current.strftime('%Y-%m-%d')
+                    if day_key in planning_semaine:
+                        planning_semaine[day_key]['absents'].append({
+                            'nom': f"{absence.personne.prenom} {absence.personne.nom}",
+                            'type_absence': absence.type_absence,
+                            'service': absence.personne.service.nom if absence.personne.service else 'N/A'
+                        })
+                    current += timedelta(days=1)
+            
+            return Response({
+                'semaine': semaine,
+                'debut_semaine': debut_semaine.isoformat(),
+                'fin_semaine': fin_semaine.isoformat(),
+                'scope': scope_name,
+                'planning': planning_semaine
+            })
+            
+        except (ValueError, Service.DoesNotExist) as e:
+            return Response({'error': str(e)}, status=400)
+    
+    def _generer_planning_calendaire(self, debut, fin, absences):
+        """Génère un planning calendaire"""
+        planning = {}
+        current_date = debut
+        
+        # Initialiser tous les jours
+        while current_date <= fin:
+            day_key = current_date.strftime('%Y-%m-%d')
+            planning[day_key] = {
+                'date': day_key,
+                'jour_semaine': current_date.strftime('%A'),
+                'numero_jour': current_date.day,
+                'est_weekend': current_date.weekday() >= 5,
+                'absents': [],
+                'nombre_absents': 0
+            }
+            current_date += timedelta(days=1)
+        
+        # Remplir avec les absences
+        for absence in absences:
+            start_date = max(absence.date_debut, debut)
+            end_date = min(absence.date_fin, fin)
+            
+            current = start_date
+            while current <= end_date:
+                day_key = current.strftime('%Y-%m-%d')
+                if day_key in planning:
+                    planning[day_key]['absents'].append({
+                        'nom': f"{absence.personne.prenom} {absence.personne.nom}",
+                        'type_absence': absence.type_absence,
+                        'service': absence.personne.service.nom if absence.personne.service else 'N/A'
+                    })
+                current += timedelta(days=1)
+        
+        # Calculer le nombre d'absents par jour
+        for day_data in planning.values():
+            day_data['nombre_absents'] = len(day_data['absents'])
+        
+        return planning
+    
+    def _calculer_jours_travailles(self, debut, fin):
+        """Calcule le nombre de jours ouvrables"""
+        jours = 0
+        current = debut
+        while current <= fin:
+            if current.weekday() < 5:  # Lundi à Vendredi
+                jours += 1
+            current += timedelta(days=1)
+        return jours
+    
+    def _calculer_taux_presence(self, nb_employes, absences, jours_travailles):
+        """Calcule le taux de présence moyen"""
+        if nb_employes == 0 or jours_travailles == 0:
+            return 100
+        
+        total_jours_employes = nb_employes * jours_travailles
+        total_jours_absences = sum((min(abs.date_fin, timezone.now().date()) - abs.date_debut).days + 1 for abs in absences)
+        
+        taux = ((total_jours_employes - total_jours_absences) / total_jours_employes) * 100
+        return round(max(0, taux), 2)
+    
+class StatistiquesViewSet(viewsets.ViewSet):
+    """
+    ViewSet pour les statistiques avancées
+    """
+    permission_classes = [IsAdminRHOrChefService]
+    
+    @action(detail=False, methods=['get'])
+    def tableau_bord_chef(self, request):
+        """Tableau de bord spécialisé pour chef de service"""
+        user = request.user
+        
+        if not user.role.startswith('chef_'):
+            return Response({'error': 'Permission refusée'}, status=403)
+        
+        try:
+            service = Service.objects.get(chef_service=user)
+            
+            # Période par défaut : 3 derniers mois
+            aujourd_hui = timezone.now().date()
+            debut_periode = aujourd_hui.replace(day=1) - timedelta(days=90)
+            
+            # Employés du service
+            employes = service.employes.all()
+            total_employes = employes.count()
+            
+            # Absences récentes
+            absences_recentes = Absence.objects.filter(
+                personne__service=service,
+                date_debut__gte=debut_periode
+            )
+            
+            # Statistiques des absences
+            absences_par_mois = []
+            for i in range(3):
+                date_mois = aujourd_hui.replace(day=1) - timedelta(days=30*i)
+                debut_mois = date_mois.replace(day=1)
+                _, last_day = monthrange(date_mois.year, date_mois.month)
+                fin_mois = date_mois.replace(day=last_day)
+                
+                nb_absences = Absence.objects.filter(
+                    personne__service=service,
+                    date_debut__lte=fin_mois,
+                    date_fin__gte=debut_mois
+                ).count()
+                
+                absences_par_mois.append({
+                    'mois': date_mois.strftime('%Y-%m'),
+                    'nom_mois': date_mois.strftime('%B %Y'),
+                    'nombre_absences': nb_absences
+                })
+            
+            # Top 5 employés par absences
+            top_absences = []
+            for employe in employes:
+                nb_absences = Absence.objects.filter(
+                    personne=employe,
+                    date_debut__gte=debut_periode
+                ).count()
+                
+                if nb_absences > 0:
+                    top_absences.append({
+                        'nom': f"{employe.prenom} {employe.nom}",
+                        'fonction': employe.fonction,
+                        'nombre_absences': nb_absences
+                    })
+            
+            top_absences.sort(key=lambda x: x['nombre_absences'], reverse=True)
+            top_absences = top_absences[:5]
+            
+            # Absences en attente de validation
+            absences_attente = Absence.objects.filter(
+                personne__service=service,
+                statut='EN_ATTENTE'
+            ).count()
+            
+            # Répartition par type d'employé
+            if service.type_service == 'enseignant':
+                repartition = employes.filter(type_employe='enseignant').values(
+                    'enseignant__grade'
+                ).annotate(count=Count('id'))
+            elif service.type_service == 'pat':
+                repartition = employes.filter(type_employe='pat').values(
+                    'personnelpat__poste'
+                ).annotate(count=Count('id'))
+            else:
+                repartition = employes.filter(type_employe='contractuel').values(
+                    'contractuel__type_contrat'
+                ).annotate(count=Count('id'))
+            
+            return Response({
+                'service': {
+                    'nom': service.nom,
+                    'type': service.type_service,
+                    'chef': user.get_full_name()
+                },
+                'statistiques_generales': {
+                    'total_employes': total_employes,
+                    'absences_attente': absences_attente,
+                    'periode_analyse': f"{debut_periode} - {aujourd_hui}"
+                },
+                'absences_par_mois': absences_par_mois,
+                'top_absences': top_absences,
+                'repartition_employes': list(repartition),
+                'genere_le': timezone.now().isoformat()
+            })
+            
+        except Service.DoesNotExist:
+            return Response({'error': 'Service non trouvé'}, status=404)
+    
+    @action(detail=False, methods=['get'])
+    def comparaison_periodes(self, request):
+        """Compare les statistiques entre deux périodes"""
+        user = request.user
+        
+        if not user.role.startswith('chef_') and user.role != 'admin_rh':
+            return Response({'error': 'Permission refusée'}, status=403)
+        
+        # Paramètres
+        periode1_debut = request.query_params.get('periode1_debut')
+        periode1_fin = request.query_params.get('periode1_fin')
+        periode2_debut = request.query_params.get('periode2_debut')
+        periode2_fin = request.query_params.get('periode2_fin')
+        
+        if not all([periode1_debut, periode1_fin, periode2_debut, periode2_fin]):
+            return Response({'error': 'Toutes les dates de période sont requises'}, status=400)
+        
+        try:
+            # Convertir les dates
+            p1_debut = datetime.strptime(periode1_debut, '%Y-%m-%d').date()
+            p1_fin = datetime.strptime(periode1_fin, '%Y-%m-%d').date()
+            p2_debut = datetime.strptime(periode2_debut, '%Y-%m-%d').date()
+            p2_fin = datetime.strptime(periode2_fin, '%Y-%m-%d').date()
+            
+            # Déterminer le scope
+            if user.role == 'admin_rh':
+                employes = Personne.objects.all()
+                scope_name = "Tous les services"
+            else:
+                service = Service.objects.get(chef_service=user)
+                employes = service.employes.all()
+                scope_name = service.nom
+            
+            # Statistiques période 1
+            absences_p1 = Absence.objects.filter(
+                personne__in=employes,
+                date_debut__lte=p1_fin,
+                date_fin__gte=p1_debut
+            )
+            
+            stats_p1 = {
+                'nombre_absences': absences_p1.count(),
+                'jours_absence': sum((abs.date_fin - abs.date_debut).days + 1 for abs in absences_p1),
+                'types_absence': dict(absences_p1.values('type_absence').annotate(count=Count('id')).values_list('type_absence', 'count'))
+            }
+            
+            # Statistiques période 2
+            absences_p2 = Absence.objects.filter(
+                personne__in=employes,
+                date_debut__lte=p2_fin,
+                date_fin__gte=p2_debut
+            )
+            
+            stats_p2 = {
+                'nombre_absences': absences_p2.count(),
+                'jours_absence': sum((abs.date_fin - abs.date_debut).days + 1 for abs in absences_p2),
+                'types_absence': dict(absences_p2.values('type_absence').annotate(count=Count('id')).values_list('type_absence', 'count'))
+            }
+            
+            # Calculs des évolutions
+            evolution_absences = ((stats_p2['nombre_absences'] - stats_p1['nombre_absences']) / 
+                                max(stats_p1['nombre_absences'], 1)) * 100
+            
+            evolution_jours = ((stats_p2['jours_absence'] - stats_p1['jours_absence']) / 
+                             max(stats_p1['jours_absence'], 1)) * 100
+            
+            return Response({
+                'scope': scope_name,
+                'periode1': {
+                    'debut': periode1_debut,
+                    'fin': periode1_fin,
+                    'statistiques': stats_p1
+                },
+                'periode2': {
+                    'debut': periode2_debut,
+                    'fin': periode2_fin,
+                    'statistiques': stats_p2
+                },
+                'evolutions': {
+                    'nombre_absences': round(evolution_absences, 2),
+                    'jours_absence': round(evolution_jours, 2)
+                }
+            })
+            
+        except (ValueError, Service.DoesNotExist) as e:
+            return Response({'error': str(e)}, status=400)
+        
 class PaieViewSet(viewsets.ModelViewSet):
     queryset = Paie.objects.select_related('personne').all()
     serializer_class = PaieSerializer
