@@ -2600,3 +2600,422 @@ Watching for file changes with StatReloader
 "GET /api/enseignants/rapport_mensuel/?mois=2025-08 HTTP/1.1" 200 518
 "GET /api/absences/ HTTP/1.1" 200 2738
 "GET /api/absences/ HTTP/1.1" 200 2738
+Watching for file changes with StatReloader
+"POST /api/auth/login/ HTTP/1.1" 200 944
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"POST /api/auth/login/ HTTP/1.1" 200 944
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/absences/ HTTP/1.1" 200 2738
+"GET /api/absences/ HTTP/1.1" 200 2738
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/rapport_mensuel/?mois=2025-08 HTTP/1.1" 200 518
+"GET /api/enseignants/rapport_mensuel/?mois=2025-08 HTTP/1.1" 200 518
+"GET /api/enseignants/rapport_annuel/?annee=2025 HTTP/1.1" 200 2771
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+Watching for file changes with StatReloader
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+"OPTIONS /api/auth/login/ HTTP/1.1" 200 0
+"POST /api/auth/login/ HTTP/1.1" 200 944
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"OPTIONS /api/enseignants/ HTTP/1.1" 200 0
+"OPTIONS /api/enseignants/ HTTP/1.1" 200 0
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"OPTIONS /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 0
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"OPTIONS /api/enseignants/par_grade/ HTTP/1.1" 200 0
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"OPTIONS /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 0
+"OPTIONS /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 0
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"OPTIONS /api/services/ HTTP/1.1" 200 0
+"OPTIONS /api/services/ HTTP/1.1" 200 0
+"GET /api/services/ HTTP/1.1" 200 389
+"GET /api/services/ HTTP/1.1" 200 389
+"OPTIONS /api/personnes/ HTTP/1.1" 200 0
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 145
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 145
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 145
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 145
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 145
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"GET /api/absences/ HTTP/1.1" 200 2738
+"GET /api/absences/ HTTP/1.1" 200 2738
+"OPTIONS /api/enseignants/rapport_mensuel/?mois=2025-08 HTTP/1.1" 200 0
+"OPTIONS /api/enseignants/rapport_mensuel/?mois=2025-08 HTTP/1.1" 200 0
+"GET /api/enseignants/rapport_mensuel/?mois=2025-08 HTTP/1.1" 200 518
+"GET /api/enseignants/rapport_mensuel/?mois=2025-08 HTTP/1.1" 200 518
+"OPTIONS /api/enseignants/rapport_annuel/?annee=2025 HTTP/1.1" 200 0
+"GET /api/enseignants/rapport_annuel/?annee=2025 HTTP/1.1" 200 2771
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/absences/ HTTP/1.1" 200 2738
+"GET /api/absences/ HTTP/1.1" 200 2738
+Watching for file changes with StatReloader
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+"OPTIONS /api/auth/login/ HTTP/1.1" 200 0
+"POST /api/auth/login/ HTTP/1.1" 200 944
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"OPTIONS /api/enseignants/ HTTP/1.1" 200 0
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"OPTIONS /api/enseignants/ HTTP/1.1" 200 0
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"OPTIONS /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 0
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"OPTIONS /api/enseignants/par_grade/ HTTP/1.1" 200 0
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"OPTIONS /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 0
+"OPTIONS /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 0
+"OPTIONS /api/enseignants/undefined/ HTTP/1.1" 200 0
+"OPTIONS /api/enseignants/undefined/ HTTP/1.1" 200 0
+Not Found: /api/enseignants/undefined/
+"GET /api/enseignants/undefined/ HTTP/1.1" 404 25
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+Not Found: /api/enseignants/undefined/
+"GET /api/enseignants/undefined/ HTTP/1.1" 404 25
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/enseignants/ HTTP/1.1" 200 3377
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 3377
+"OPTIONS /api/services/ HTTP/1.1" 200 0
+"OPTIONS /api/services/ HTTP/1.1" 200 0
+"GET /api/services/ HTTP/1.1" 200 389
+"GET /api/services/ HTTP/1.1" 200 389
+"OPTIONS /api/personnes/ HTTP/1.1" 200 0
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 62
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 62
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 62
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 62
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 62
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 62
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 62
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 62
+Bad Request: /api/personnes/
+"POST /api/personnes/ HTTP/1.1" 400 62
+"POST /api/personnes/ HTTP/1.1" 201 775
+"POST /api/enseignants/ HTTP/1.1" 201 1090
+"GET /api/enseignants/?page=1&page_size=10 HTTP/1.1" 200 4468
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/dashboard/auto/ HTTP/1.1" 200 293
+"GET /api/enseignants/ HTTP/1.1" 200 4468
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/ HTTP/1.1" 200 4468
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"GET /api/absences/?statut=EN_ATTENTE HTTP/1.1" 200 831
+"GET /api/enseignants/par_grade/ HTTP/1.1" 200 156
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"GET /api/absences/ HTTP/1.1" 200 2738
+"GET /api/absences/ HTTP/1.1" 200 2738
+"OPTIONS /api/enseignants/rapport_mensuel/?mois=2025-10 HTTP/1.1" 200 0
+"OPTIONS /api/enseignants/rapport_mensuel/?mois=2025-10 HTTP/1.1" 200 0
+"GET /api/enseignants/rapport_mensuel/?mois=2025-10 HTTP/1.1" 200 517
+"GET /api/enseignants/rapport_mensuel/?mois=2025-10 HTTP/1.1" 200 517
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\serializers.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\serializers.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\serializers.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\serializers.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\serializers.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\serializers.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\serializers.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\serializers.py changed, reloading.
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+Unauthorized: /api/dashboard/auto/
+"GET /api/dashboard/auto/ HTTP/1.1" 401 172
+Unauthorized: /api/dashboard/auto/
+"GET /api/dashboard/auto/ HTTP/1.1" 401 172
+"OPTIONS /api/auth/refresh/ HTTP/1.1" 200 0
+Unauthorized: /api/auth/refresh/
+"POST /api/auth/refresh/ HTTP/1.1" 401 54
+Unauthorized: /api/auth/refresh/
+"POST /api/auth/refresh/ HTTP/1.1" 401 54
+"OPTIONS /api/auth/login/ HTTP/1.1" 200 0
+"POST /api/auth/login/ HTTP/1.1" 200 882
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"OPTIONS /api/personnel-pat/ HTTP/1.1" 200 0
+"OPTIONS /api/personnel-pat/ HTTP/1.1" 200 0
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+Bad Request: /api/personnel-pat/
+"POST /api/personnel-pat/ HTTP/1.1" 400 45
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"GET /api/absences/ HTTP/1.1" 200 52
+"GET /api/absences/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/absences/ HTTP/1.1" 200 52
+"GET /api/absences/ HTTP/1.1" 200 52
+"GET /api/absences/ HTTP/1.1" 200 52
+"GET /api/absences/ HTTP/1.1" 200 52
+Watching for file changes with StatReloader
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+Unauthorized: /api/dashboard/auto/
+"GET /api/dashboard/auto/ HTTP/1.1" 401 172
+Unauthorized: /api/dashboard/auto/
+"GET /api/dashboard/auto/ HTTP/1.1" 401 172
+"OPTIONS /api/auth/refresh/ HTTP/1.1" 200 0
+"POST /api/auth/refresh/ HTTP/1.1" 200 489
+"POST /api/auth/refresh/ HTTP/1.1" 200 489
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"GET /api/absences/ HTTP/1.1" 200 52
+"GET /api/absences/ HTTP/1.1" 200 52
+"GET /api/absences/ HTTP/1.1" 200 52
+"GET /api/absences/ HTTP/1.1" 200 52
+"OPTIONS /api/personnel-pat/ HTTP/1.1" 200 0
+"OPTIONS /api/personnel-pat/ HTTP/1.1" 200 0
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\serializers.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\views.py changed, reloading.
+Watching for file changes with StatReloader
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/dashboard/auto/ HTTP/1.1" 200 259
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 52
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"OPTIONS /api/personnel-pat/rapport_mensuel/?mois=2025-10 HTTP/1.1" 200 0
+"OPTIONS /api/personnel-pat/rapport_mensuel/?mois=2025-10 HTTP/1.1" 200 0
+"GET /api/personnel-pat/rapport_mensuel/?mois=2025-10 HTTP/1.1" 200 434
+"GET /api/personnel-pat/rapport_mensuel/?mois=2025-10 HTTP/1.1" 200 434
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"OPTIONS /api/personnel-pat/2/ HTTP/1.1" 200 0
+Bad Request: /api/personnel-pat/2/
+"PUT /api/personnel-pat/2/ HTTP/1.1" 400 121
+Bad Request: /api/personnel-pat/2/
+"PUT /api/personnel-pat/2/ HTTP/1.1" 400 121
+Bad Request: /api/personnel-pat/2/
+"PUT /api/personnel-pat/2/ HTTP/1.1" 400 121
+Bad Request: /api/personnel-pat/2/
+"PUT /api/personnel-pat/2/ HTTP/1.1" 400 121
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+Bad Request: /api/personnel-pat/2/
+"PUT /api/personnel-pat/2/ HTTP/1.1" 400 121
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+Watching for file changes with StatReloader
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+Unauthorized: /api/dashboard/auto/
+"GET /api/dashboard/auto/ HTTP/1.1" 401 172
+Unauthorized: /api/dashboard/auto/
+"OPTIONS /api/auth/refresh/ HTTP/1.1" 200 0
+"GET /api/dashboard/auto/ HTTP/1.1" 401 172
+Unauthorized: /api/auth/refresh/
+Unauthorized: /api/auth/refresh/
+"POST /api/auth/refresh/ HTTP/1.1" 401 54
+"POST /api/auth/refresh/ HTTP/1.1" 401 54
+"OPTIONS /api/auth/login/ HTTP/1.1" 200 0
+"POST /api/auth/login/ HTTP/1.1" 200 882
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"OPTIONS /api/personnel-pat/ HTTP/1.1" 200 0
+"OPTIONS /api/personnel-pat/ HTTP/1.1" 200 0
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"OPTIONS /api/absences/ HTTP/1.1" 200 0
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/absences/ HTTP/1.1" 200 1381
+"OPTIONS /api/personnel-pat/rapport_mensuel/?mois=2025-11 HTTP/1.1" 200 0
+"OPTIONS /api/personnel-pat/rapport_mensuel/?mois=2025-11 HTTP/1.1" 200 0
+"GET /api/personnel-pat/rapport_mensuel/?mois=2025-11 HTTP/1.1" 200 434
+"GET /api/personnel-pat/rapport_mensuel/?mois=2025-11 HTTP/1.1" 200 434
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/absences/ HTTP/1.1" 200 1381
+"GET /api/personnel-pat/rapport_mensuel/?mois=2025-11 HTTP/1.1" 200 434
+"GET /api/personnel-pat/rapport_mensuel/?mois=2025-11 HTTP/1.1" 200 434
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 4272
+"OPTIONS /api/auth/login/ HTTP/1.1" 200 0
+"OPTIONS /api/auth/login/ HTTP/1.1" 200 0
+Watching for file changes with StatReloader
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+"OPTIONS /api/dashboard/auto/ HTTP/1.1" 200 0
+Unauthorized: /api/dashboard/auto/
+"GET /api/dashboard/auto/ HTTP/1.1" 401 172
+Unauthorized: /api/dashboard/auto/
+"OPTIONS /api/auth/refresh/ HTTP/1.1" 200 0
+"GET /api/dashboard/auto/ HTTP/1.1" 401 172
+"POST /api/auth/refresh/ HTTP/1.1" 200 489
+"POST /api/auth/refresh/ HTTP/1.1" 200 489
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"GET /api/dashboard/auto/ HTTP/1.1" 200 298
+"OPTIONS /api/personnel-pat/ HTTP/1.1" 200 0
+"OPTIONS /api/personnel-pat/ HTTP/1.1" 200 0
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+"GET /api/personnel-pat/ HTTP/1.1" 200 1335
+C:\Users\Chiva\Documents\Stage-MESRS\stage_back_M\stage_back_M\MESRS\myapp\views.py changed, reloading.

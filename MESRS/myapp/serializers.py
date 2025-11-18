@@ -212,24 +212,45 @@ class EnseignantSerializer(serializers.ModelSerializer):
 class PersonnelPATSerializer(serializers.ModelSerializer):
     personne = PersonneSerializer(read_only=True)
     personne_id = serializers.IntegerField(write_only=True)
-    personne_nom_complet = serializers.CharField(source='personne.prenom', read_only=True)
+    
+    # ✅ Ajouter TOUS les champs nécessaires pour le frontend
+    personne_nom_complet = serializers.SerializerMethodField()
+    personne_nom = serializers.CharField(source='personne.nom', read_only=True)
+    personne_prenom = serializers.CharField(source='personne.prenom', read_only=True)
     personne_service = serializers.CharField(source='personne.service.nom', read_only=True)
+    personne_fonction = serializers.CharField(source='personne.fonction', read_only=True)
+    
+    poste_label = serializers.SerializerMethodField()
     anciennete_grade_annees = serializers.SerializerMethodField()
+    
+    # ✅ IMPORTANT: Ajouter l'ID pour les clés uniques dans le frontend
+    id = serializers.IntegerField(source='personne.id', read_only=True)
     
     class Meta:
         model = PersonnelPAT
         fields = [
-            'personne', 'personne_id', 'personne_nom_complet', 'personne_service',
-            'grade', 'poste', 'nbi_mac', 'indice', 'anciennete_echelon',
+            'id',  # ✅ CRUCIAL pour React keys
+            'personne', 'personne_id', 
+            'personne_nom', 'personne_prenom', 'personne_nom_complet',  # ✅ AJOUTÉS
+            'personne_service', 'personne_fonction',  # ✅ AJOUTÉ
+            'grade', 'poste', 'poste_label',
+            'nbi_mac', 'indice', 'anciennete_echelon',
             'date_changement', 'anciennete_grade', 'date_nomination',
             'date_prise_service', 'anciennete_grade_annees'
         ]
     
+    def get_personne_nom_complet(self, obj):
+        if obj.personne:
+            return f"{obj.personne.prenom} {obj.personne.nom}"
+        return "N/A"
+    
+    def get_poste_label(self, obj):
+        return dict(PersonnelPAT.POSTE_CHOICES).get(obj.poste, obj.poste)
+    
     def get_anciennete_grade_annees(self, obj):
-        """Calcul ancienneté grade en années"""
         from datetime import date
         today = date.today()
-        return today.year - obj.date_nomination.year
+        return today.year - obj.date_nomination.year if obj.date_nomination else 0
     
     def validate_personne_id(self, value):
         try:
@@ -239,7 +260,6 @@ class PersonnelPATSerializer(serializers.ModelSerializer):
             return value
         except Personne.DoesNotExist:
             raise serializers.ValidationError("Personne non trouvée")
-
 
 class ContractuelSerializer(serializers.ModelSerializer):
     personne = PersonneSerializer(read_only=True)
