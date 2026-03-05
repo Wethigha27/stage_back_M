@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from .models import (
     User, Service, Structure, Personne, Enseignant, PersonnelPAT, Contractuel,
-    Recrutement, Candidat, Absence, Paie, Detachement, Document,
+    Recrutement, Candidat, Absence, Paie, ElementPaie, Detachement, Document,
     StatutOffre, TypeStructure,  TypeContrat, TypeAbsence,
     StatutPaiement, StatutAbsence, TypeDocument, StatutCandidature
 )
@@ -211,7 +211,7 @@ class EnseignantSerializer(serializers.ModelSerializer):
 
 class PersonnelPATSerializer(serializers.ModelSerializer):
     personne = PersonneSerializer(read_only=True)
-    personne_id = serializers.IntegerField(write_only=True)
+    personne_id = serializers.IntegerField(write_only=True, required=False)
     
     # ✅ Ajouter TOUS les champs nécessaires pour le frontend
     personne_nom_complet = serializers.SerializerMethodField()
@@ -260,6 +260,28 @@ class PersonnelPATSerializer(serializers.ModelSerializer):
             return value
         except Personne.DoesNotExist:
             raise serializers.ValidationError("Personne non trouvée")
+    
+    def update(self, instance, validated_data):
+        """Mise à jour du PersonnelPAT avec gestion des données Personne imbriquées"""
+        # Extraire les données personne si présentes dans la requête initiale
+        request = self.context.get('request')
+        if request and hasattr(request, 'data'):
+            personne_data = request.data.get('personne', {})
+            if personne_data and instance.personne:
+                # Mettre à jour les champs de Personne
+                personne = instance.personne
+                for attr, value in personne_data.items():
+                    if hasattr(personne, attr) and value is not None:
+                        setattr(personne, attr, value)
+                personne.save()
+        
+        # Mettre à jour les champs PAT
+        for attr, value in validated_data.items():
+            if attr != 'personne_id':
+                setattr(instance, attr, value)
+        instance.save()
+        
+        return instance
 
 class ContractuelSerializer(serializers.ModelSerializer):
     personne = PersonneSerializer(read_only=True)
@@ -377,13 +399,18 @@ class AbsenceSerializer(serializers.ModelSerializer):
     approuve_par_nom = serializers.CharField(source='approuve_par.get_full_name', read_only=True)
     duree_absence = serializers.SerializerMethodField()
     peut_approuver = serializers.SerializerMethodField()
+    personne = serializers.PrimaryKeyRelatedField(
+        queryset=Personne.objects.all(),
+        required=False,  # Rendre optionnel pour permettre aux employés de ne pas le fournir
+        allow_null=True
+    )
     
     class Meta:
         model = Absence
         fields = [
             'id', 'personne', 'personne_nom', 'personne_prenom', 'personne_service',
             'type_absence', 'date_debut', 'date_fin', 'duree_absence', 'statut',
-            'document_justificatif', 'date_demande_absence', 'motif_refus',
+            'motif', 'document_justificatif', 'date_demande_absence', 'motif_refus',
             'approuve_par', 'approuve_par_nom', 'commentaire_approbateur',
             'peut_approuver'
         ]
@@ -399,19 +426,35 @@ class AbsenceSerializer(serializers.ModelSerializer):
         return False
 
 
+class ElementPaieSerializer(serializers.ModelSerializer):
+    """Serializer pour les éléments détaillés du bulletin"""
+    class Meta:
+        model = ElementPaie
+        fields = [
+            'id', 'code', 'libelle', 'type_element', 'taux', 'montant',
+            'date_debut', 'date_fin', 'ordre'
+        ]
+
+
 class PaieSerializer(serializers.ModelSerializer):
     personne_nom = serializers.CharField(source='personne.nom', read_only=True)
     personne_prenom = serializers.CharField(source='personne.prenom', read_only=True)
     personne_service = serializers.CharField(source='personne.service.nom', read_only=True)
+    personne_nni = serializers.CharField(source='personne.nni', read_only=True)
+    personne_genre = serializers.CharField(source='personne.genre', read_only=True)
+    personne_numero_employe = serializers.CharField(source='personne.numero_employe', read_only=True)
     traite_par_nom = serializers.CharField(source='traite_par.get_full_name', read_only=True)
+    elements = ElementPaieSerializer(many=True, read_only=True)
     
     class Meta:
         model = Paie
         fields = [
-            'id', 'personne', 'personne_nom', 'personne_prenom', 'personne_service',
-            'salaire_net', 'salaire_brut', 'nb_enfants', 'allocations_familiales',
-            'deductions', 'date_paiement', 'mois_annee', 'statut_paiement',
-            'traite_par', 'traite_par_nom'
+            'id', 'personne', 'personne_nom', 'personne_prenom', 'personne_service', 'personne_nni',
+            'personne_genre', 'personne_numero_employe', 'salaire_net', 'salaire_brut', 'nb_enfants', 
+            'allocations_familiales', 'deductions', 'date_paiement', 'mois_annee', 'statut_paiement',
+            'traite_par', 'traite_par_nom', 'grade', 'echelon', 'indice',
+            'mode_reglement', 'compte_bancaire', 'montant_imposable_mensuel',
+            'montant_imposable_progressif', 'elements'
         ]
 
 
@@ -449,10 +492,125 @@ class DocumentSerializer(serializers.ModelSerializer):
             'taille_fichier_mb', 'date_upload', 'proprietaire', 'proprietaire_nom',
             'proprietaire_prenom', 'uploade_par', 'uploade_par_nom'
         ]
+        extra_kwargs = {
+            'nom': {'required': False},
+            'chemin_fichier': {'required': False},
+            'taille_fichier': {'required': False},
+            'proprietaire': {'required': False},
+        }
     
     def get_taille_fichier_mb(self, obj):
         """Taille en MB pour affichage"""
-        return round(obj.taille_fichier / (1024 * 1024), 2)
+        if obj.taille_fichier:
+            return round(obj.taille_fichier / (1024 * 1024), 2)
+        return 0
+    
+    def to_internal_value(self, data):
+        """Intercepter les données avant validation pour gérer les alias"""
+        request = self.context.get('request')
+        
+        # Créer une copie mutable des données
+        if hasattr(data, '_mutable'):
+            data._mutable = True
+        
+        # Si 'nom' n'est pas présent mais 'titre' l'est, utiliser 'titre'
+        if request and hasattr(request, 'data'):
+            if 'nom' not in request.data and 'titre' in request.data:
+                if not hasattr(data, 'get') or data.get('nom') is None:
+                    # Ajouter 'nom' avec la valeur de 'titre'
+                    if isinstance(data, dict):
+                        data['nom'] = request.data['titre']
+                    elif hasattr(data, 'append'):
+                        # Pour QueryDict, utiliser update
+                        pass
+        
+        # Pour les fichiers, DRF les gère automatiquement depuis request.FILES
+        # Pas besoin de les modifier ici
+        
+        return super().to_internal_value(data)
+    
+    def validate(self, attrs):
+        """Validation personnalisée pour gérer les champs du frontend"""
+        request = self.context.get('request')
+        errors = {}
+        
+        # Récupérer 'nom' depuis attrs ou request.data (support 'titre' comme alias)
+        if 'nom' not in attrs or not attrs.get('nom'):
+            if request and hasattr(request, 'data'):
+                if 'nom' in request.data:
+                    attrs['nom'] = request.data['nom']
+                elif 'titre' in request.data:
+                    attrs['nom'] = request.data['titre']
+        
+        # Récupérer 'chemin_fichier' depuis attrs, request.FILES ou request.data (support 'fichier' comme alias)
+        if 'chemin_fichier' not in attrs or not attrs.get('chemin_fichier'):
+            fichier_trouve = None
+            
+            # Chercher dans request.FILES d'abord
+            if request and hasattr(request, 'FILES') and request.FILES:
+                if 'chemin_fichier' in request.FILES:
+                    fichier_trouve = request.FILES['chemin_fichier']
+                elif 'fichier' in request.FILES:
+                    fichier_trouve = request.FILES['fichier']
+            
+            # Si pas trouvé dans FILES, chercher dans request.data (cas où le fichier serait mal parsé)
+            if not fichier_trouve and request and hasattr(request, 'data'):
+                if 'chemin_fichier' in request.data:
+                    valeur = request.data['chemin_fichier']
+                    # Vérifier si c'est un fichier uploadé
+                    if hasattr(valeur, 'read') or (hasattr(valeur, 'file') and hasattr(valeur.file, 'read')):
+                        fichier_trouve = valeur
+                elif 'fichier' in request.data:
+                    valeur = request.data['fichier']
+                    if hasattr(valeur, 'read') or (hasattr(valeur, 'file') and hasattr(valeur.file, 'read')):
+                        fichier_trouve = valeur
+            
+            if fichier_trouve:
+                attrs['chemin_fichier'] = fichier_trouve
+        
+        # Calculer taille_fichier si chemin_fichier est présent
+        if 'chemin_fichier' in attrs and attrs['chemin_fichier']:
+            attrs['taille_fichier'] = attrs['chemin_fichier'].size
+        
+        # Validation des champs requis avec messages d'erreur détaillés
+        if not attrs.get('nom'):
+            errors['nom'] = 'Le titre est requis'
+        
+        if not attrs.get('chemin_fichier'):
+            errors['chemin_fichier'] = 'Le fichier est requis'
+        
+        if not attrs.get('type_document'):
+            errors['type_document'] = 'Le type de document est requis'
+        else:
+            # Vérifier que le type_document est valide
+            valid_types = [choice[0] for choice in Document.TYPE_DOCUMENT_CHOICES]
+            if attrs.get('type_document') not in valid_types:
+                errors['type_document'] = f'Type de document invalide. Types acceptés: {", ".join(valid_types)}'
+        
+        if errors:
+            raise serializers.ValidationError(errors)
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """Gérer la création avec attribution automatique pour les employés"""
+        request = self.context.get('request')
+        
+        # Si proprietaire n'est pas fourni et que c'est un employé, le récupérer automatiquement
+        if 'proprietaire' not in validated_data:
+            user = request.user if request else None
+            if user and user.role == 'employe':
+                try:
+                    personne = Personne.objects.get(user=user)
+                    validated_data['proprietaire'] = personne
+                except Personne.DoesNotExist:
+                    raise serializers.ValidationError({'proprietaire': 'Vous devez d\'abord compléter votre profil'})
+        
+        # Définir uploade_par si non fourni
+        if 'uploade_par' not in validated_data and request:
+            validated_data['uploade_par'] = request.user
+        
+        return super().create(validated_data)
 
 
 # ========================================
@@ -468,6 +626,9 @@ class PersonneDetailSerializer(serializers.ModelSerializer):
     equipe = PersonneSerializer(many=True, read_only=True)
     service_info = serializers.SerializerMethodField()
     type_employe_details = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
+    user_username = serializers.SerializerMethodField()
+    nom_complet = serializers.SerializerMethodField()
     
     class Meta:
         model = Personne
@@ -504,6 +665,22 @@ class PersonneDetailSerializer(serializers.ModelSerializer):
             except:
                 return None
         return None
+    
+    def get_user_email(self, obj):
+        """Retourne l'email de l'utilisateur"""
+        if obj.user:
+            return obj.user.email
+        return None
+    
+    def get_user_username(self, obj):
+        """Retourne le username de l'utilisateur"""
+        if obj.user:
+            return obj.user.username
+        return None
+    
+    def get_nom_complet(self, obj):
+        """Retourne le nom complet"""
+        return f"{obj.prenom} {obj.nom}"
 
 
 class StructureTreeSerializer(serializers.ModelSerializer):

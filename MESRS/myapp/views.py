@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Count, Sum
 from django.utils import timezone
@@ -28,6 +29,7 @@ from io import StringIO
 from django.utils import timezone
 from datetime import timedelta
 from .models import (
+    ElementPaie,
     User, Service, Structure, Personne, Enseignant, PersonnelPAT, Contractuel,
     Recrutement, Candidat, Absence, Paie, Detachement, Document,
     StatutOffre, TypeStructure, TypeContrat, TypeAbsence, 
@@ -83,6 +85,60 @@ class UserViewSet(viewsets.ModelViewSet):
         else:
             # Employé ne voit que lui-même
             return User.objects.filter(id=user.id)
+    
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny], authentication_classes=[])
+    def creer_employe(self, request):
+        """
+        Endpoint public pour créer un compte employé (inscription)
+        Ne nécessite pas d'authentification
+        """
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+        
+        data = request.data.copy()
+        
+        # Vérifier que le rôle est bien "employe"
+        if data.get('role') != 'employe':
+            return Response({'error': 'Cet endpoint est réservé à la création de comptes employés'}, status=400)
+        
+        # Vérifier que l'username n'existe pas déjà
+        username = data.get('username')
+        if not username:
+            return Response({'error': 'Le nom d\'utilisateur est requis'}, status=400)
+        
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Ce nom d\'utilisateur existe déjà'}, status=400)
+        
+        # Vérifier que l'email n'existe pas déjà
+        email = data.get('email', '')
+        if email and User.objects.filter(email=email).exists():
+            return Response({'error': 'Cet email est déjà utilisé'}, status=400)
+        
+        # Valider le mot de passe
+        password = data.get('password')
+        if not password:
+            return Response({'error': 'Le mot de passe est requis'}, status=400)
+        
+        if len(password) < 6:
+            return Response({'error': 'Le mot de passe doit contenir au moins 6 caractères'}, status=400)
+        
+        # Créer l'utilisateur
+        try:
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                role='employe',
+                is_staff=False,
+                is_superuser=False,
+                is_active=True
+            )
+            
+            # Retourner les données de l'utilisateur (sans le mot de passe)
+            serializer = self.get_serializer(user)
+            return Response(serializer.data, status=201)
+        except Exception as e:
+            return Response({'error': f'Erreur lors de la création: {str(e)}'}, status=400)
     
     @action(detail=False, methods=['post'])
     def create_chef_service(self, request):
@@ -165,6 +221,30 @@ class ServiceViewSet(viewsets.ModelViewSet):
         
         return Response(stats)
     
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def pour_onboarding(self, request):
+        """
+        Endpoint spécifique pour l'onboarding des employés
+        Permet aux employés de voir tous les services pour sélectionner le leur
+        """
+        # Vérifier que l'utilisateur est un employé
+        if request.user.role != 'employe':
+            return Response({'error': 'Cet endpoint est réservé aux employés'}, status=403)
+        
+        # Vérifier que l'employé n'a pas encore de profil (onboarding)
+        try:
+            personne = Personne.objects.get(user=request.user)
+            # Si le profil existe, retourner seulement le service de l'employé
+            if personne.service:
+                serializer = ServiceSerializer(personne.service)
+                return Response([serializer.data])
+            return Response([])
+        except Personne.DoesNotExist:
+            # Si le profil n'existe pas, retourner tous les services pour l'onboarding
+            services = Service.objects.all().order_by('nom')
+            serializer = ServiceSerializer(services, many=True)
+            return Response(serializer.data)
+    
     @action(detail=True, methods=['post'])
     def assigner_chef(self, request, pk=None):
         """Assigner un chef de service (Admin RH seulement)"""
@@ -222,6 +302,14 @@ class PersonneViewSet(viewsets.ModelViewSet):
             return PersonneDetailSerializer
         return PersonneSerializer
     
+    def get_permissions(self):
+        """
+        Surcharge les permissions pour permettre aux employés d'accéder à leur profil
+        """
+        if self.action in ['mon_profil', 'creer_mon_profil']:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
     def perform_create(self, serializer):
         user = self.request.user
         
@@ -235,15 +323,40 @@ class PersonneViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated], url_path='mon_profil')
     def mon_profil(self, request):
-        """Profile de l'utilisateur connecté"""
+        """
+        Profile de l'utilisateur connecté
+        Accessible à tous les utilisateurs authentifiés (employés, chefs, admin RH)
+        """
         try:
             personne = Personne.objects.get(user=request.user)
             serializer = PersonneDetailSerializer(personne)
             return Response(serializer.data)
         except Personne.DoesNotExist:
             return Response({'error': 'Profil non trouvé'}, status=404)
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_path='creer_mon_profil')
+    def creer_mon_profil(self, request):
+        """
+        Endpoint spécifique pour permettre aux employés de créer leur propre profil
+        lors de l'onboarding
+        """
+        # Vérifier que l'utilisateur est un employé
+        if request.user.role != 'employe':
+            return Response({'error': 'Cet endpoint est réservé aux employés'}, status=403)
+        
+        # Vérifier que l'employé n'a pas déjà un profil
+        if Personne.objects.filter(user=request.user).exists():
+            return Response({'error': 'Vous avez déjà un profil'}, status=400)
+        
+        # Créer le profil avec l'utilisateur associé
+        serializer = PersonneSerializer(data=request.data)
+        if serializer.is_valid():
+            # Associer automatiquement l'utilisateur connecté
+            personne = serializer.save(user=request.user)
+            return Response(PersonneDetailSerializer(personne).data, status=201)
+        return Response(serializer.errors, status=400)
     
     @action(detail=False, methods=['get'])
     def par_service(self, request):
@@ -493,19 +606,32 @@ class EnseignantViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def rapport_mensuel(self, request):
-        """Rapport mensuel des enseignants pour chef de service"""
+        """Rapport mensuel des enseignants pour chef de service ou admin RH"""
         user = request.user
         
-        if user.role != 'chef_enseignant':
+        if not user.is_authenticated:
+            return Response({'error': 'Authentification requise'}, status=401)
+        
+        # Vérifier les permissions
+        if user.role not in ['chef_enseignant', 'admin_rh']:
             return Response({'error': 'Permission refusée'}, status=403)
         
         # Paramètres
         mois = request.query_params.get('mois', timezone.now().strftime('%Y-%m'))
         
         try:
-            # Récupérer le service du chef
-            service = Service.objects.get(chef_service=user, type_service='enseignant')
-            queryset = self.get_queryset()
+            # Récupérer le service selon le rôle
+            if user.role == 'admin_rh':
+                # Admin RH peut voir tous les services enseignants ou un service spécifique
+                # Pour l'instant, on prend le premier service enseignant trouvé
+                service = Service.objects.filter(type_service='enseignant').first()
+                if not service:
+                    return Response({'error': 'Aucun service enseignant trouvé'}, status=404)
+                queryset = Enseignant.objects.select_related('personne', 'personne__service').all()
+            else:
+                # Chef enseignant voit seulement son service
+                service = Service.objects.get(chef_service=user, type_service='enseignant')
+                queryset = self.get_queryset()
             
             # Protection: Filtrer seulement les enseignants avec personne
             queryset = queryset.filter(personne__isnull=False)
@@ -582,12 +708,25 @@ class EnseignantViewSet(viewsets.ModelViewSet):
             return Response(rapport)
             
         except Service.DoesNotExist:
-            return Response({'error': 'Service non trouvé'}, status=404)
+            return Response({
+                'error': 'Service non trouvé',
+                'message': 'Aucun service enseignant trouvé pour cet utilisateur'
+            }, status=404)
+        except AttributeError as e:
+            # Gérer le cas où l'utilisateur n'a pas d'attribut 'role'
+            print(f"❌ Erreur AttributeError rapport_mensuel: {str(e)}")
+            return Response({
+                'error': 'Erreur de configuration utilisateur',
+                'message': 'L\'utilisateur n\'a pas de rôle défini'
+            }, status=500)
         except Exception as e:
             print(f"❌ Erreur rapport_mensuel: {str(e)}")
             import traceback
             traceback.print_exc()
-            return Response({'error': f'Erreur interne: {str(e)}'}, status=500)
+            return Response({
+                'error': 'Erreur interne',
+                'message': str(e)
+            }, status=500)
 
     @action(detail=False, methods=['get'])
     def rapport_annuel(self, request):
@@ -1342,6 +1481,19 @@ class AbsenceViewSet(viewsets.ModelViewSet):
     search_fields = ['personne__nom', 'personne__prenom']
     ordering_fields = ['date_debut', 'date_demande_absence']
     
+    def get_permissions(self):
+        """
+        Permet aux employés de créer et lire leurs propres absences
+        Les autres actions nécessitent les permissions normales
+        """
+        # Si c'est une action de lecture (list, retrieve) ou création, permettre aux employés authentifiés
+        # Les actions personnalisées de lecture sont aussi autorisées
+        if self.action in ['list', 'retrieve', 'create', 'en_cours', 'statistiques']:
+            return [IsAuthenticated()]
+        
+        # Pour les autres actions (update, delete, approuver, refuser, etc.), utiliser les permissions normales
+        return super().get_permissions()
+    
     def get_queryset(self):
         user = self.request.user
         
@@ -1358,6 +1510,33 @@ class AbsenceViewSet(viewsets.ModelViewSet):
                 return Absence.objects.none()
         else:
             return self.queryset.filter(personne__user=user)
+    
+    def perform_create(self, serializer):
+        """
+        Permet aux employés de créer leurs propres absences
+        """
+        user = self.request.user
+        
+        # Si c'est un employé, vérifier qu'il crée une absence pour lui-même
+        if user.role == 'employe':
+            personne_id = self.request.data.get('personne')
+            if not personne_id:
+                # Si pas de personne_id fourni, essayer de récupérer depuis l'utilisateur
+                try:
+                    personne = Personne.objects.get(user=user)
+                    serializer.save(personne=personne)
+                    return
+                except Personne.DoesNotExist:
+                    raise DRFValidationError('Vous devez d\'abord compléter votre profil')
+            else:
+                try:
+                    personne = Personne.objects.get(id=personne_id)
+                    if personne.user != user:
+                        raise DRFValidationError('Vous ne pouvez créer une absence que pour vous-même')
+                except Personne.DoesNotExist:
+                    raise DRFValidationError('Personne non trouvée')
+        
+        serializer.save()
     
     @action(detail=False, methods=['get'])
     def en_cours(self, request):
@@ -1950,7 +2129,7 @@ class StatistiquesViewSet(viewsets.ViewSet):
             return Response({'error': str(e)}, status=400)
         
 class PaieViewSet(viewsets.ModelViewSet):
-    queryset = Paie.objects.select_related('personne').all()
+    queryset = Paie.objects.select_related('personne').prefetch_related('elements').all()
     serializer_class = PaieSerializer
     permission_classes = [IsAdminRHOrChefService]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -1974,6 +2153,36 @@ class PaieViewSet(viewsets.ModelViewSet):
                 return Paie.objects.none()
         else:
             return self.queryset.filter(personne__user=user)
+    
+    def create(self, request, *args, **kwargs):
+        """Créer la paie avec les éléments"""
+        # Créer une copie mutable de request.data
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        elements_data = data.pop('elements', [])
+        
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        paie = serializer.save(traite_par=request.user)
+        
+        # Créer les éléments de paie
+        for element_data in elements_data:
+            ElementPaie.objects.create(
+                paie=paie,
+                code=element_data.get('code'),
+                libelle=element_data.get('libelle'),
+                type_element=element_data.get('type_element'),
+                taux=float(element_data.get('taux')) if element_data.get('taux') else None,
+                montant=float(element_data.get('montant')),
+                date_debut=element_data.get('date_debut') or None,
+                date_fin=element_data.get('date_fin') or None,
+                ordre=int(element_data.get('ordre', 0))
+            )
+        
+        # Recharger la paie avec les éléments
+        paie.refresh_from_db()
+        serializer = self.get_serializer(paie)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
     @action(detail=False, methods=['get'])
     def resume_mensuel(self, request):
@@ -2038,6 +2247,19 @@ class DocumentViewSet(viewsets.ModelViewSet):
     search_fields = ['nom', 'proprietaire__nom', 'proprietaire__prenom']
     ordering_fields = ['date_upload', 'nom']
     
+    def get_permissions(self):
+        """
+        Permet aux employés de lire et créer leurs propres documents
+        Les autres actions nécessitent les permissions normales
+        """
+        # Si c'est une action de lecture (list, retrieve) ou création, permettre aux employés authentifiés
+        # L'action mes_documents est aussi autorisée pour les employés
+        if self.action in ['list', 'retrieve', 'create', 'mes_documents']:
+            return [IsAuthenticated()]
+        
+        # Pour les autres actions (update, delete, etc.), utiliser les permissions normales
+        return super().get_permissions()
+    
     def get_queryset(self):
         user = self.request.user
         
@@ -2065,6 +2287,66 @@ class DocumentViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Personne.DoesNotExist:
             return Response([])
+    
+    def create(self, request, *args, **kwargs):
+        """Création personnalisée pour gérer FormData avec alias"""
+        from django.http import QueryDict
+        
+        # Créer une copie mutable de request.data
+        data = request.data.copy() if hasattr(request.data, 'copy') else QueryDict(mutable=True)
+        
+        # Gérer les alias titre -> nom dans data
+        if 'nom' not in data and 'titre' in data:
+            data['nom'] = data['titre']
+        
+        # Calculer taille_fichier si un fichier est présent dans request.FILES
+        if hasattr(request, 'FILES') and request.FILES:
+            # Chercher le fichier sous 'chemin_fichier' ou 'fichier'
+            fichier = None
+            if 'chemin_fichier' in request.FILES:
+                fichier = request.FILES['chemin_fichier']
+            elif 'fichier' in request.FILES:
+                fichier = request.FILES['fichier']
+            
+            if fichier and hasattr(fichier, 'size'):
+                data['taille_fichier'] = fichier.size
+        
+        # Créer le serializer avec data
+        # Le serializer récupérera les fichiers depuis request.FILES via le contexte
+        serializer = self.get_serializer(data=data)
+        
+        try:
+            # Valider - le serializer récupérera les fichiers depuis request.FILES via le contexte
+            serializer.is_valid(raise_exception=True)
+            # Créer
+            self.perform_create(serializer)
+        except Exception as e:
+            if hasattr(e, 'detail'):
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            elif hasattr(e, 'error_dict'):
+                return Response(e.error_dict, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def perform_create(self, serializer):
+        """
+        Permet aux employés de créer leurs propres documents
+        """
+        user = self.request.user
+        
+        # Si c'est un employé, vérifier qu'il crée un document pour lui-même
+        if user.role == 'employe':
+            try:
+                personne = Personne.objects.get(user=user)
+                serializer.save(proprietaire=personne)
+                return
+            except Personne.DoesNotExist:
+                raise DRFValidationError('Vous devez d\'abord compléter votre profil')
+        
+        serializer.save()
 
 
 # ========================================
@@ -2124,6 +2406,20 @@ class DashboardViewSet(viewsets.ViewSet):
     """
     permission_classes = [IsAuthenticated]
     
+    def list(self, request):
+        """Redirige vers auto par défaut"""
+        return self.auto(request)
+    
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def test(self, request):
+        """Endpoint de test pour vérifier que le serveur fonctionne"""
+        return Response({
+            'status': 'ok',
+            'message': 'Dashboard endpoint fonctionne',
+            'url': request.path,
+            'method': request.method
+        })
+    
     @action(detail=False, methods=['get'])
     def admin_rh(self, request):
         """Dashboard Admin RH - Vue globale"""
@@ -2169,13 +2465,12 @@ class DashboardViewSet(viewsets.ViewSet):
     def chef_service(self, request):
         """Dashboard Chef de Service - Vue limitée à son service"""
         user = request.user
-        
         if not user.role.startswith('chef_'):
-            return Response({'error': 'Permission refusée'}, status=403)
-        
+            return Response({'error': 'Permission refusée. Ce tableau de bord est réservé aux chefs de service.'}, status=403)
+
         try:
             service = Service.objects.get(chef_service=user)
-            
+
             # Statistiques du service
             employes = service.employes.all()
             total_employes = employes.count()
@@ -2215,7 +2510,10 @@ class DashboardViewSet(viewsets.ViewSet):
             })
             
         except Service.DoesNotExist:
-            return Response({'error': 'Service non trouvé pour ce chef'}, status=404)
+            return Response({
+                'error': 'Service non trouvé',
+                'message': 'Vous êtes enregistré comme chef de service, mais aucun service ne vous est assigné. Veuillez contacter l\'administrateur RH.'
+            }, status=400)
     
     @action(detail=False, methods=['get'])
     def employe(self, request):
@@ -2266,14 +2564,38 @@ class DashboardViewSet(viewsets.ViewSet):
         """Dashboard automatique selon le rôle"""
         user = request.user
         
-        if user.role == 'admin_rh':
-            return self.admin_rh(request)
-        elif user.role.startswith('chef_'):
-            return self.chef_service(request)
-        elif user.role == 'employe':
-            return self.employe(request)
-        else:
-            return Response({'error': 'Rôle non reconnu'}, status=400)
+        # Vérifier l'authentification
+        if not user.is_authenticated:
+            return Response({'error': 'Authentification requise'}, status=401)
+        
+        # Vérifier que l'utilisateur a un rôle
+        if not hasattr(user, 'role') or not user.role:
+            return Response({
+                'error': 'Rôle non défini',
+                'message': 'L\'utilisateur n\'a pas de rôle défini'
+            }, status=400)
+        
+        try:
+            if user.role == 'admin_rh':
+                return self.admin_rh(request)
+            elif user.role.startswith('chef_'):
+                return self.chef_service(request)
+            elif user.role == 'employe':
+                return self.employe(request)
+            else:
+                return Response({
+                    'error': 'Rôle non reconnu',
+                    'role': user.role,
+                    'message': f'Le rôle "{user.role}" n\'est pas pris en charge'
+                }, status=400)
+        except Exception as e:
+            print(f"❌ Erreur dans auto(): {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': 'Erreur interne',
+                'message': str(e)
+            }, status=500)
 
 
 # ========================================

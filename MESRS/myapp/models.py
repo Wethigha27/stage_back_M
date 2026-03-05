@@ -304,6 +304,7 @@ class Absence(models.Model):
     date_debut = models.DateField()
     date_fin = models.DateField()
     statut = models.CharField(max_length=15, choices=STATUT_ABSENCE_CHOICES, default='EN_ATTENTE')
+    motif = models.TextField(blank=True, help_text='Raison de l\'absence fournie par l\'employé')
     document_justificatif = models.FileField(upload_to='justificatifs/', null=True, blank=True)
     date_demande_absence = models.DateField(auto_now_add=True)
     motif_refus = models.TextField(blank=True)
@@ -342,11 +343,44 @@ class Paie(models.Model):
     statut_paiement = models.CharField(max_length=15, choices=STATUT_PAIEMENT_CHOICES, default='EN_COURS')
     traite_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     
+    # Informations supplémentaires pour le bulletin de salaire
+    grade = models.CharField(max_length=200, blank=True, help_text="Grade de l'employé")
+    echelon = models.CharField(max_length=10, blank=True, help_text="Échelon")
+    indice = models.CharField(max_length=10, blank=True, help_text="Indice")
+    mode_reglement = models.CharField(max_length=100, blank=True, help_text="Mode de règlement (ex: Code 340)")
+    compte_bancaire = models.CharField(max_length=200, blank=True, help_text="Numéro de compte bancaire")
+    montant_imposable_mensuel = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    montant_imposable_progressif = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
     class Meta:
         unique_together = ['personne', 'mois_annee']
     
     def __str__(self):
         return f"Paie {self.mois_annee} - {self.personne}"
+
+
+class ElementPaie(models.Model):
+    """Modèle pour les éléments détaillés du bulletin de salaire"""
+    TYPE_ELEMENT_CHOICES = [
+        ('GAIN', 'Gain'),
+        ('RETENUE', 'Retenue'),
+    ]
+    
+    paie = models.ForeignKey(Paie, on_delete=models.CASCADE, related_name='elements')
+    code = models.CharField(max_length=10, help_text="Code de l'élément (ex: 210, 600)")
+    libelle = models.CharField(max_length=200, help_text="Libellé de l'élément")
+    type_element = models.CharField(max_length=10, choices=TYPE_ELEMENT_CHOICES)
+    taux = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Taux en pourcentage")
+    montant = models.DecimalField(max_digits=10, decimal_places=2, help_text="Montant")
+    date_debut = models.DateField(null=True, blank=True)
+    date_fin = models.DateField(null=True, blank=True)
+    ordre = models.IntegerField(default=0, help_text="Ordre d'affichage")
+    
+    class Meta:
+        ordering = ['ordre', 'code']
+    
+    def __str__(self):
+        return f"{self.code} - {self.libelle} ({self.paie})"
 
 
 class Detachement(models.Model):
